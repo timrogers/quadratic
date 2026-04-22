@@ -86,11 +86,18 @@ router.get("/callback", async (req: Request, res: Response) => {
 
     // Store user ID in session
     req.session.userId = user.id;
-    res.json({ message: "Logged in successfully", user: { id: user.id, login: user.login, name: user.name } });
+    res.redirect("/");
   } catch (error) {
     console.error("OAuth callback error:", error);
     res.status(500).json({ error: "Authentication failed" });
   }
+});
+
+// Redirect to the GitHub App's installation page
+router.get("/install", (_req: Request, res: Response) => {
+  res.redirect(
+    `https://github.com/apps/${encodeURIComponent(config.github.appSlug)}/installations/new`,
+  );
 });
 
 // Logout

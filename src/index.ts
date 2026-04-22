@@ -1,6 +1,7 @@
 import express from "express";
 import session from "express-session";
 import crypto from "crypto";
+import path from "path";
 import rateLimit from "express-rate-limit";
 import { config } from "./config";
 import authRoutes from "./routes/auth";
@@ -65,6 +66,9 @@ const webhookLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Serve the static frontend
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 // Routes
 app.use("/auth", authRoutes);

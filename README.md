@@ -19,6 +19,7 @@ A minimal issue tracking tool built with TypeScript, Express, and Prisma (Postgr
   - **Webhook secret** configured
   - Permissions: `Repository metadata: Read-only`
   - Subscribe to events: `Installation`, `Installation repositories`
+  - Note the App's **slug** (the part of `https://github.com/apps/<slug>`); set it as `GITHUB_APP_SLUG` so the UI can link to the install page
 
 ## Setup
 
@@ -60,16 +61,32 @@ A minimal issue tracking tool built with TypeScript, Express, and Prisma (Postgr
    npm start
    ```
 
+   Then open [http://localhost:3000](http://localhost:3000) in your browser to
+   sign in with GitHub, install the App on your repositories, and start
+   managing issues.
+
+## Web UI
+
+The server ships with a minimal, modern single-page UI served from `public/`
+at the root URL. It provides:
+
+- A landing page with a **Sign in with GitHub** button
+- An **install** prompt that links to the GitHub App installation page once
+  you're signed in (used when no repositories are linked yet)
+- A **dashboard** to browse linked repositories and create, edit, change the
+  status of, and delete issues
+
 ## API Endpoints
 
 ### Authentication
 
-| Method | Path             | Description                        |
-| ------ | ---------------- | ---------------------------------- |
-| GET    | `/auth/login`    | Redirect to GitHub OAuth           |
-| GET    | `/auth/callback` | OAuth callback (exchanges code)    |
-| POST   | `/auth/logout`   | Destroy session                    |
-| GET    | `/auth/me`       | Get current authenticated user     |
+| Method | Path             | Description                                  |
+| ------ | ---------------- | -------------------------------------------- |
+| GET    | `/auth/login`    | Redirect to GitHub OAuth                     |
+| GET    | `/auth/callback` | OAuth callback (exchanges code, redirects /) |
+| GET    | `/auth/install`  | Redirect to the GitHub App install page      |
+| POST   | `/auth/logout`   | Destroy session                              |
+| GET    | `/auth/me`       | Get current authenticated user               |
 
 ### Repositories
 

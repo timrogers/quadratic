@@ -20,6 +20,7 @@ export const config = {
     webhookSecret: required("GITHUB_APP_WEBHOOK_SECRET"),
     clientId: required("GITHUB_CLIENT_ID"),
     clientSecret: required("GITHUB_CLIENT_SECRET"),
+    appSlug: required("GITHUB_APP_SLUG"),
   },
   session: {
     secret: required("SESSION_SECRET"),
