@@ -43,7 +43,15 @@ app.use((req, res, next) => {
   if (!req.session.csrfToken) {
     req.session.csrfToken = crypto.randomBytes(32).toString("hex");
   }
-  if (!csrfToken || csrfToken !== req.session.csrfToken) {
+  if (
+    !csrfToken ||
+    typeof csrfToken !== "string" ||
+    csrfToken.length !== req.session.csrfToken.length ||
+    !crypto.timingSafeEqual(
+      Buffer.from(csrfToken),
+      Buffer.from(req.session.csrfToken),
+    )
+  ) {
     res.status(403).json({ error: "Invalid or missing CSRF token" });
     return;
   }

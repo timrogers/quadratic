@@ -91,7 +91,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
   const issue = await prisma.issue.create({
     data: {
       title: title.trim(),
-      description: description || null,
+      description: description?.trim() || null,
       repositoryId,
       authorId: req.session.userId!,
     },

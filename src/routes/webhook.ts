@@ -6,6 +6,17 @@ import { config } from "../config";
 const router = Router();
 
 /**
+ * Parse the owner from a GitHub full_name (e.g. "octocat/hello-world" → "octocat").
+ */
+function parseOwner(fullName: string): string {
+  const slashIndex = fullName.indexOf("/");
+  if (slashIndex <= 0) {
+    throw new Error(`Invalid repository full_name: ${fullName}`);
+  }
+  return fullName.substring(0, slashIndex);
+}
+
+/**
  * Verify the webhook signature from GitHub to ensure authenticity.
  */
 function verifyWebhookSignature(
@@ -82,7 +93,7 @@ async function handleInstallationEvent(body: InstallationPayload): Promise<void>
           githubId: repo.id,
           fullName: repo.full_name,
           name: repo.name,
-          owner: repo.full_name.split("/")[0],
+          owner: parseOwner(repo.full_name),
           installationId: inst.id,
         })),
       });
@@ -124,7 +135,7 @@ async function handleInstallationRepositoriesEvent(
         githubId: repo.id,
         fullName: repo.full_name,
         name: repo.name,
-        owner: repo.full_name.split("/")[0],
+        owner: parseOwner(repo.full_name),
         installationId: inst.id,
       })),
       skipDuplicates: true,
