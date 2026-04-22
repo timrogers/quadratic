@@ -42,8 +42,32 @@ model Repository {
 
   installation    Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
   issues          Issue[]
+  issuedTokens    IssuedToken[]
 
   @@index([installationId])
+}
+
+// Tokens issued via OIDC token exchange (RFC 8693). Each token grants
+// scoped access to a single repository's issues. The raw token value is
+// never stored; only a SHA-256 hash is persisted.
+model IssuedToken {
+  id              Int       @id @default(autoincrement())
+  tokenHash       String    @unique
+  scope           String
+  repositoryId    Int
+  agent           String?
+  actor           String?
+  actorId         String?
+  subject         String?
+  jti             String?   @unique
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  repository      Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId])
+  @@index([expiresAt])
 }
 
 model Issue {

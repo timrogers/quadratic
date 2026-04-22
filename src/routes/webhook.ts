@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import { prisma } from "../db";
 import { config } from "../config";
+import { log } from "../logger";
 
 const router = Router();
 
@@ -61,7 +62,9 @@ router.post("/", async (req: Request, res: Response) => {
 
     res.status(200).json({ ok: true });
   } catch (error) {
-    console.error("Webhook processing error:", error);
+    log.error("webhook.processing.failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({ error: "Webhook processing failed" });
   }
 });
@@ -125,7 +128,7 @@ async function handleInstallationRepositoriesEvent(
   });
 
   if (!inst) {
-    console.warn(`Installation ${installation.id} not found locally`);
+    log.warn("webhook.installation.not_found", { githubInstallationId: installation.id });
     return;
   }
 

@@ -38,4 +38,12 @@ export const config = {
   session: {
     secret: required("SESSION_SECRET"),
   },
+  oidc: {
+    // The OIDC issuer that signs the incoming JWTs (e.g. GitHub Actions OIDC).
+    issuer: process.env.OIDC_ISSUER || "https://token.actions.githubusercontent.com",
+    // The audience this service expects in incoming OIDC JWTs.
+    audience: required("OIDC_AUDIENCE"),
+    // Lifetime of issued access tokens in seconds.
+    tokenLifetimeSeconds: parseInt(process.env.OIDC_TOKEN_LIFETIME_SECONDS || "3600", 10),
+  },
 };

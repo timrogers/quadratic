@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db";
 import { config } from "../config";
+import { log } from "../logger";
 
 const router = Router();
 
@@ -88,7 +89,9 @@ router.get("/callback", async (req: Request, res: Response) => {
     req.session.userId = user.id;
     res.redirect("/");
   } catch (error) {
-    console.error("OAuth callback error:", error);
+    log.error("auth.oauth_callback.failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({ error: "Authentication failed" });
   }
 });
