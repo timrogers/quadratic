@@ -12,7 +12,7 @@ A minimal issue tracking tool built with TypeScript, Express, and Prisma (Postgr
 ## Prerequisites
 
 - Node.js 20+
-- PostgreSQL database
+- Docker and Docker Compose (for local PostgreSQL), or an existing PostgreSQL database
 - A [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with:
   - **OAuth** enabled (Client ID + Client Secret)
   - **Webhook URL** pointed at `<your-base-url>/webhooks/github`
@@ -22,26 +22,34 @@ A minimal issue tracking tool built with TypeScript, Express, and Prisma (Postgr
 
 ## Setup
 
-1. **Install dependencies**
+1. **Start the database**
+
+   ```bash
+   docker compose up -d
+   ```
+
+   This starts a local PostgreSQL instance matching the defaults in `.env.example`.
+
+2. **Install dependencies**
 
    ```bash
    npm install
    ```
 
-2. **Configure environment**
+3. **Configure environment**
 
    ```bash
    cp .env.example .env
    # Edit .env with your database URL, GitHub App credentials, etc.
    ```
 
-3. **Run database migrations**
+4. **Run database migrations**
 
    ```bash
    npm run db:push
    ```
 
-4. **Start the server**
+5. **Start the server**
 
    ```bash
    # Development
