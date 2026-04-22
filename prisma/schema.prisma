@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id              Int      @id @default(autoincrement())
+  githubId        Int      @unique
+  login           String
+  name            String?
+  avatarUrl       String?
+  accessToken     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  issues          Issue[]
+}
+
+model Installation {
+  id              Int      @id @default(autoincrement())
+  githubInstallationId Int @unique
+  accountLogin    String
+  accountType     String   // "User" or "Organization"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  repositories    Repository[]
+}
+
+model Repository {
+  id              Int          @id @default(autoincrement())
+  githubId        Int          @unique
+  fullName        String       @unique
+  name            String
+  owner           String
+  installationId  Int
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  installation    Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  issues          Issue[]
+
+  @@index([installationId])
+}
+
+model Issue {
+  id              Int       @id @default(autoincrement())
+  title           String
+  description     String?
+  status          IssueStatus @default(OPEN)
+  repositoryId    Int
+  authorId        Int
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  repository      Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  author          User       @relation(fields: [authorId], references: [id])
+
+  @@index([repositoryId])
+  @@index([authorId])
+  @@index([status])
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
