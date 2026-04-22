@@ -10,6 +10,19 @@ function required(name: string): string {
   return value;
 }
 
+// GitHub App slugs are lowercase alphanumeric with hyphens, 1–39 chars
+const GITHUB_APP_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/;
+
+function requiredAppSlug(name: string): string {
+  const value = required(name);
+  if (!GITHUB_APP_SLUG_RE.test(value)) {
+    throw new Error(
+      `${name} must be a valid GitHub App slug (lowercase alphanumeric and hyphens)`,
+    );
+  }
+  return value;
+}
+
 export const config = {
   port: parseInt(process.env.PORT || "3000", 10),
   baseUrl: required("BASE_URL"),
@@ -20,7 +33,7 @@ export const config = {
     webhookSecret: required("GITHUB_APP_WEBHOOK_SECRET"),
     clientId: required("GITHUB_CLIENT_ID"),
     clientSecret: required("GITHUB_CLIENT_SECRET"),
-    appSlug: required("GITHUB_APP_SLUG"),
+    appSlug: requiredAppSlug("GITHUB_APP_SLUG"),
   },
   session: {
     secret: required("SESSION_SECRET"),
