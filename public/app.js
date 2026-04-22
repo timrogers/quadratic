@@ -1,4 +1,4 @@
-/* global window, document, fetch */
+/* global window, document, fetch, history */
 
 const STATUS_LABELS = {
   OPEN: "Open",
@@ -28,7 +28,7 @@ async function api(path, options = {}) {
     opts.method && !["GET", "HEAD", "OPTIONS"].includes(opts.method);
   if (isMutating) {
     if (!state.csrfToken) {
-      const r = await fetch("/csrf-token", { credentials: "same-origin" });
+      const r = await fetch("/api/csrf-token", { credentials: "same-origin" });
       const j = await r.json();
       state.csrfToken = j.csrfToken;
     }
@@ -63,6 +63,29 @@ function toast(message, type = "info") {
   }, 3500);
 }
 
+/* ---------- Routing ---------- */
+
+function parseRoute(pathname = window.location.pathname) {
+  const m = pathname.match(/^\/issues\/(\d+)\/?$/);
+  if (m) return { name: "issue", id: parseInt(m[1], 10) };
+  return { name: "dashboard" };
+}
+
+function navigate(pathname) {
+  if (window.location.pathname === pathname) return;
+  history.pushState({}, "", pathname);
+  renderRoute();
+}
+
+function renderRoute() {
+  const route = parseRoute();
+  if (route.name === "issue") {
+    renderIssueDetail(route.id);
+  } else {
+    renderDashboard();
+  }
+}
+
 /* ---------- Rendering ---------- */
 
 function renderUserNav() {
@@ -82,7 +105,7 @@ function renderUserNav() {
   }
 }
 
-function renderApp() {
+function renderDashboard() {
   const app = $("#app");
   app.replaceChildren();
 
@@ -155,17 +178,18 @@ function renderIssues(issues) {
   if (issues.length === 0) {
     const empty = document.createElement("li");
     empty.className = "empty-issues";
-    empty.textContent =
-      state.statusFilter
-        ? `No ${STATUS_LABELS[state.statusFilter].toLowerCase()} issues.`
-        : "No issues yet. Click \u201cNew issue\u201d to create the first one.";
+    empty.textContent = state.statusFilter
+      ? `No ${STATUS_LABELS[state.statusFilter].toLowerCase()} issues.`
+      : "No issues yet. Click \u201cNew issue\u201d to create the first one.";
     list.appendChild(empty);
     return;
   }
   for (const issue of issues) {
     const card = tpl("tpl-issue-card");
     card.querySelector("[data-status]").dataset.status = issue.status;
-    card.querySelector("[data-title]").textContent = issue.title;
+    const link = card.querySelector("[data-title-link]");
+    link.textContent = issue.title;
+    link.href = `/issues/${issue.id}`;
     const desc = card.querySelector("[data-desc]");
     desc.textContent = issue.description || "";
     card.querySelector("[data-author]").textContent =
@@ -177,7 +201,7 @@ function renderIssues(issues) {
     select.value = issue.status;
     select.addEventListener("change", async (e) => {
       try {
-        await api(`/issues/${issue.id}`, {
+        await api(`/api/issues/${issue.id}`, {
           method: "PATCH",
           body: { status: e.target.value },
         });
@@ -193,7 +217,7 @@ function renderIssues(issues) {
     card.querySelector("[data-delete]").addEventListener("click", async () => {
       if (!window.confirm(`Delete "${issue.title}"?`)) return;
       try {
-        await api(`/issues/${issue.id}`, { method: "DELETE" });
+        await api(`/api/issues/${issue.id}`, { method: "DELETE" });
         toast("Issue deleted");
         loadIssues();
       } catch (err) {
@@ -202,6 +226,96 @@ function renderIssues(issues) {
     });
     list.appendChild(card);
   }
+}
+
+async function renderIssueDetail(id) {
+  const app = $("#app");
+  app.replaceChildren(
+    Object.assign(document.createElement("div"), {
+      className: "loading",
+      textContent: "Loading issue\u2026",
+    }),
+  );
+
+  if (!state.user) {
+    app.replaceChildren(tpl("tpl-landing"));
+    return;
+  }
+
+  let issue;
+  try {
+    issue = await api(`/api/issues/${id}`);
+  } catch (err) {
+    app.replaceChildren();
+    const box = document.createElement("section");
+    box.className = "empty";
+    const heading = document.createElement("h2");
+    heading.textContent = err.status === 404 ? "Issue not found" : "Could not load issue";
+    box.appendChild(heading);
+    const p = document.createElement("p");
+    p.textContent = err.message;
+    box.appendChild(p);
+    const back = document.createElement("a");
+    back.href = "/";
+    back.className = "btn btn-primary";
+    back.textContent = "Back to issues";
+    box.appendChild(back);
+    app.appendChild(box);
+    return;
+  }
+
+  const view = tpl("tpl-issue-detail");
+  view.querySelector("[data-status]").dataset.status = issue.status;
+  view.querySelector("[data-title]").textContent = issue.title;
+  view.querySelector("[data-author]").textContent =
+    `@${issue.author?.login || "unknown"}`;
+  view.querySelector("[data-created]").textContent = formatDate(
+    issue.createdAt,
+  );
+  const repoLink = view.querySelector("[data-repo-link]");
+  repoLink.textContent = issue.repository?.fullName || "repository";
+  repoLink.href = "/";
+  const desc = view.querySelector("[data-desc]");
+  if (issue.description) {
+    desc.textContent = issue.description;
+  } else {
+    const em = document.createElement("em");
+    em.className = "muted";
+    em.textContent = "No description.";
+    desc.appendChild(em);
+  }
+
+  const select = view.querySelector("[data-status-select]");
+  select.value = issue.status;
+  select.addEventListener("change", async (e) => {
+    try {
+      const updated = await api(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        body: { status: e.target.value },
+      });
+      issue.status = updated.status;
+      view.querySelector("[data-status]").dataset.status = updated.status;
+    } catch (err) {
+      toast(err.message, "error");
+      select.value = issue.status;
+    }
+  });
+
+  view.querySelector("[data-edit]").addEventListener("click", () => {
+    openIssueModal(issue, () => renderIssueDetail(issue.id));
+  });
+  view.querySelector("[data-delete]").addEventListener("click", async () => {
+    if (!window.confirm(`Delete "${issue.title}"?`)) return;
+    try {
+      await api(`/api/issues/${issue.id}`, { method: "DELETE" });
+      toast("Issue deleted");
+      navigate("/");
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  });
+
+  app.replaceChildren(view);
 }
 
 function formatDate(iso) {
@@ -218,8 +332,11 @@ function formatDate(iso) {
 
 /* ---------- Modal ---------- */
 
-function openIssueModal(issue = null) {
+let modalAfterSave = null;
+
+function openIssueModal(issue = null, afterSave = null) {
   state.editingIssue = issue;
+  modalAfterSave = afterSave;
   $("#modal-title").textContent = issue ? "Edit issue" : "New issue";
   $("#issue-title-input").value = issue ? issue.title : "";
   $("#issue-desc-input").value = issue ? issue.description || "" : "";
@@ -232,6 +349,7 @@ function openIssueModal(issue = null) {
 function closeIssueModal() {
   $("#modal").hidden = true;
   state.editingIssue = null;
+  modalAfterSave = null;
 }
 
 async function submitIssueForm(e) {
@@ -246,7 +364,7 @@ async function submitIssueForm(e) {
   saveBtn.disabled = true;
   try {
     if (state.editingIssue) {
-      await api(`/issues/${state.editingIssue.id}`, {
+      await api(`/api/issues/${state.editingIssue.id}`, {
         method: "PATCH",
         body: {
           title,
@@ -256,7 +374,7 @@ async function submitIssueForm(e) {
       });
       toast("Issue updated");
     } else {
-      await api("/issues", {
+      await api("/api/issues", {
         method: "POST",
         body: {
           title,
@@ -266,8 +384,13 @@ async function submitIssueForm(e) {
       });
       toast("Issue created");
     }
+    const after = modalAfterSave;
     closeIssueModal();
-    loadIssues();
+    if (after) {
+      after();
+    } else {
+      loadIssues();
+    }
   } catch (err) {
     toast(err.message, "error");
   } finally {
@@ -283,14 +406,14 @@ async function loadIssues() {
   list.replaceChildren(
     Object.assign(document.createElement("li"), {
       className: "empty-issues",
-      textContent: "Loading issues…",
+      textContent: "Loading issues\u2026",
     }),
   );
   const params = new URLSearchParams();
   if (state.activeRepoId) params.set("repositoryId", String(state.activeRepoId));
   if (state.statusFilter) params.set("status", state.statusFilter);
   try {
-    const issues = await api(`/issues?${params.toString()}`);
+    const issues = await api(`/api/issues?${params.toString()}`);
     renderIssues(issues);
   } catch (err) {
     toast(err.message, "error");
@@ -302,7 +425,7 @@ async function loadIssues() {
 async function boot() {
   // Try to load current user
   try {
-    state.user = await api("/auth/me");
+    state.user = await api("/api/me");
   } catch (err) {
     if (err.status !== 401) toast(err.message, "error");
     state.user = null;
@@ -310,7 +433,7 @@ async function boot() {
 
   if (state.user) {
     try {
-      state.repositories = await api("/repositories");
+      state.repositories = await api("/api/repositories");
       if (state.repositories.length > 0) {
         state.activeRepoId = state.repositories[0].id;
       }
@@ -320,7 +443,7 @@ async function boot() {
   }
 
   renderUserNav();
-  renderApp();
+  renderRoute();
 }
 
 /* ---------- Wire static handlers ---------- */
@@ -328,8 +451,8 @@ async function boot() {
 document.addEventListener("DOMContentLoaded", () => {
   $("#logout-btn").addEventListener("click", async () => {
     try {
-      await api("/auth/logout", { method: "POST" });
-      window.location.reload();
+      await api("/api/logout", { method: "POST" });
+      window.location.assign("/");
     } catch (err) {
       toast(err.message, "error");
     }
@@ -343,6 +466,23 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !$("#modal").hidden) closeIssueModal();
   });
+
+  // Intercept clicks on internal links so we can use client-side routing
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest && e.target.closest("a[href]");
+    if (!a) return;
+    if (a.target && a.target !== "" && a.target !== "_self") return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    const href = a.getAttribute("href");
+    if (!href || href.startsWith("http") || href.startsWith("//")) return;
+    // Only intercept routes the SPA owns
+    if (href === "/" || /^\/issues\/\d+\/?$/.test(href)) {
+      e.preventDefault();
+      navigate(href);
+    }
+  });
+
+  window.addEventListener("popstate", renderRoute);
 
   boot();
 });

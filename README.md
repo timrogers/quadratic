@@ -85,29 +85,58 @@ at the root URL. It provides:
 | GET    | `/auth/login`    | Redirect to GitHub OAuth                     |
 | GET    | `/auth/callback` | OAuth callback (exchanges code, redirects /) |
 | GET    | `/auth/install`  | Redirect to the GitHub App install page      |
-| POST   | `/auth/logout`   | Destroy session                              |
-| GET    | `/auth/me`       | Get current authenticated user               |
+| POST   | `/api/logout`    | Destroy session                              |
+| GET    | `/api/me`        | Get current authenticated user               |
 
 ### Repositories
 
-| Method | Path               | Description                             |
-| ------ | ------------------ | --------------------------------------- |
-| GET    | `/repositories`    | List all linked repositories            |
-| GET    | `/repositories/:id`| Get a single repository                 |
+| Method | Path                   | Description                             |
+| ------ | ---------------------- | --------------------------------------- |
+| GET    | `/api/repositories`    | List all linked repositories            |
+| GET    | `/api/repositories/:id`| Get a single repository                 |
 
 Repositories are managed automatically via GitHub App installation webhooks.
 
 ### Issues
 
-| Method | Path          | Description                                      |
-| ------ | ------------- | ------------------------------------------------ |
-| GET    | `/issues`     | List issues (filter: `?repositoryId=&status=`)   |
-| GET    | `/issues/:id` | Get a single issue                               |
-| POST   | `/issues`     | Create an issue (`{ title, description?, repositoryId }`) |
-| PATCH  | `/issues/:id` | Update an issue (`{ title?, description?, status? }`)     |
-| DELETE | `/issues/:id` | Delete an issue                                  |
+| Method | Path              | Description                                      |
+| ------ | ----------------- | ------------------------------------------------ |
+| GET    | `/api/issues`     | List issues (filter: `?repositoryId=&status=`)   |
+| GET    | `/api/issues/:id` | Get a single issue                               |
+| POST   | `/api/issues`     | Create an issue (`{ title, description?, repositoryId }`) |
+| PATCH  | `/api/issues/:id` | Update an issue (`{ title?, description?, status? }`)     |
+| DELETE | `/api/issues/:id` | Delete an issue                                  |
 
 Issue statuses: `OPEN`, `IN_PROGRESS`, `CLOSED`
+
+The frontend exposes per-issue permalink pages at `/issues/:id` (HTML, served by the SPA).
+
+### External API (bearer token)
+
+| Method | Path                       | Description                                    |
+| ------ | -------------------------- | ---------------------------------------------- |
+| GET    | `/api/external/issues`     | List issues for the token's repository         |
+| GET    | `/api/external/issues/:id` | Get a single issue from the token's repository |
+
+Requires an OIDC-issued bearer token scoped to a single repository.
+
+### MCP server
+
+| Method | Path   | Description                                              |
+| ------ | ------ | -------------------------------------------------------- |
+| POST   | `/mcp` | [Model Context Protocol](https://modelcontextprotocol.io) endpoint (Streamable HTTP, stateless) |
+
+Authenticated with the same OIDC-issued bearer tokens as the External API
+(`Authorization: Bearer <token>`). The token's repository scope is enforced for
+every tool call. Exposes five tools:
+
+| Tool             | Description                                                                 |
+| ---------------- | --------------------------------------------------------------------------- |
+| `list_issues`    | List issues in the token's repository, optionally filtered by status.       |
+| `get_issue`      | Get a single issue by id.                                                   |
+| `create_issue`   | Create a new issue. The author is the user identified by the token's actor. |
+| `update_issue`   | Update an issue's title, description and/or status.                         |
+| `delete_issues`  | Delete an issue by id.                                                      |
 
 ### Webhooks
 
@@ -117,12 +146,12 @@ Issue statuses: `OPEN`, `IN_PROGRESS`, `CLOSED`
 
 ### Health
 
-| Method | Path           | Description                                   |
-| ------ | -------------- | --------------------------------------------- |
-| GET    | `/health`      | Health check                                  |
-| GET    | `/csrf-token`  | Get a CSRF token for state-changing requests  |
+| Method | Path              | Description                                   |
+| ------ | ----------------- | --------------------------------------------- |
+| GET    | `/health`         | Health check                                  |
+| GET    | `/api/csrf-token` | Get a CSRF token for state-changing requests  |
 
-> **Note**: All `POST`, `PATCH`, and `DELETE` requests (except webhooks) require a valid `X-CSRF-Token` header. Obtain a token from `GET /csrf-token`.
+> **Note**: All `POST`, `PATCH`, and `DELETE` requests (except webhooks and the `/api/external/` bearer-token API) require a valid `X-CSRF-Token` header. Obtain a token from `GET /api/csrf-token`.
 
 ## Data Model
 
