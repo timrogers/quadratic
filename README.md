@@ -92,9 +92,12 @@ Issue statuses: `OPEN`, `IN_PROGRESS`, `CLOSED`
 
 ### Health
 
-| Method | Path      | Description   |
-| ------ | --------- | ------------- |
-| GET    | `/health` | Health check  |
+| Method | Path           | Description                                   |
+| ------ | -------------- | --------------------------------------------- |
+| GET    | `/health`      | Health check                                  |
+| GET    | `/csrf-token`  | Get a CSRF token for state-changing requests  |
+
+> **Note**: All `POST`, `PATCH`, and `DELETE` requests (except webhooks) require a valid `X-CSRF-Token` header. Obtain a token from `GET /csrf-token`.
 
 ## Data Model
 
