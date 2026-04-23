@@ -17,6 +17,14 @@ import mcpRoutes from "./routes/mcp";
 
 const app = express();
 
+// In production we run behind a TLS-terminating reverse proxy. Trust the
+// first proxy hop so that `req.secure` reflects the original scheme and
+// `express-session` will issue the `Set-Cookie` header for our `secure: true`
+// session cookie.
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 // Log every incoming HTTP request (must be first so all downstream
 // middleware/handlers run inside the request-scoped log context).
 app.use(requestLogger);
