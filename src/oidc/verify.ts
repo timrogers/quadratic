@@ -42,6 +42,24 @@ export async function verifyOidcJwt(
     audience,
     tokenLength: token.length,
   });
+
+  // Decode (without verifying) to surface the issuer/audience/kid in logs.
+  // This makes issuer/JWKS mismatches obvious before we attempt signature
+  // verification.
+  try {
+    const unverified = jwt.decode(token, { complete: true });
+    if (unverified && typeof unverified === "object") {
+      log.info("oidc.verify.unverified_claims", {
+        header: unverified.header,
+        payload: unverified.payload,
+        expected_issuer: issuer,
+        expected_audience: audience,
+      });
+    }
+  } catch {
+    // Decoding is best-effort logging; ignore failures.
+  }
+
   return new Promise((resolve, reject) => {
     jwt.verify(
       token,

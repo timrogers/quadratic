@@ -11,7 +11,7 @@ import sessionRoutes from "./routes/session";
 import webhookRoutes from "./routes/webhook";
 import repositoryRoutes from "./routes/repositories";
 import issueRoutes from "./routes/issues";
-import oauthRoutes from "./routes/oauth";
+import oauthRoutes, { SUPPORTED_GRANT_TYPES } from "./routes/oauth";
 import apiIssueRoutes from "./routes/apiIssues";
 import mcpRoutes from "./routes/mcp";
 
@@ -126,10 +126,42 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+// RFC 8414 OAuth 2.0 Authorization Server Metadata. We expose this both at
+// the canonical path and at `/<resource>` suffixes (per RFC 8414 §3.1) so
+// that MCP clients which derive the discovery URL from the protected
+// resource path (e.g. `/.well-known/oauth-authorization-server/mcp`) can
+// also discover us. Only the token-exchange / jwt-bearer flows are
+// supported — there is no interactive authorization endpoint because the
+// caller already holds a verifiable OIDC JWT (typically from GitHub
+// Actions OIDC).
+function authorizationServerMetadata() {
+  const issuer = config.baseUrl.replace(/\/$/, "");
+  return {
+    issuer,
+    token_endpoint: `${issuer}/oauth/token`,
+    revocation_endpoint: `${issuer}/oauth/revoke`,
+    grant_types_supported: SUPPORTED_GRANT_TYPES,
+    response_types_supported: [],
+    token_endpoint_auth_methods_supported: ["none"],
+    revocation_endpoint_auth_methods_supported: ["none"],
+    subject_token_types_supported: ["urn:ietf:params:oauth:token-type:jwt"],
+  };
+}
+
+app.get(
+  /^\/\.well-known\/oauth-authorization-server(\/.*)?$/,
+  (_req, res) => {
+    res
+      .status(200)
+      .set("Cache-Control", "public, max-age=300")
+      .json(authorizationServerMetadata());
+  },
+);
+
 // SPA fallback: serve index.html for client-side routes (e.g. /issues/:id).
 // Any non-API, non-auth, non-webhook GET that doesn't match a static file
 // falls through to the SPA so client-side routing can take over.
-app.get(/^\/(?!api\/|auth\/|oauth\/|webhooks\/|mcp(\/|$)|health$).*/, (_req, res) => {
+app.get(/^\/(?!api\/|auth\/|oauth\/|webhooks\/|mcp(\/|$)|\.well-known\/|health$).*/, (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });
 

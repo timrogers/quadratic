@@ -9,13 +9,21 @@ import { log } from "../logger";
 const router = Router();
 
 const TOKEN_EXCHANGE_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange";
+const JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer";
 const JWT_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:jwt";
 const ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token";
 
+export const SUPPORTED_GRANT_TYPES = [
+  TOKEN_EXCHANGE_GRANT,
+  JWT_BEARER_GRANT,
+] as const;
+
 interface TokenExchangeBody {
   grant_type?: string;
+  // RFC 8693 token exchange uses `subject_token`; RFC 7523 jwt-bearer uses `assertion`.
   subject_token?: string;
   subject_token_type?: string;
+  assertion?: string;
   audience?: string;
   resource?: string;
   scope?: string;
@@ -69,7 +77,7 @@ function pickRepoIdentifier(
   return {};
 }
 
-// RFC 8693 token exchange endpoint.
+// RFC 8693 token exchange and RFC 7523 jwt-bearer endpoint.
 router.post("/token", async (req: Request, res: Response) => {
   const body: TokenExchangeBody = req.body || {};
 
@@ -81,22 +89,37 @@ router.post("/token", async (req: Request, res: Response) => {
     resource: body.resource,
     scope: body.scope,
     has_subject_token: !!body.subject_token,
+    has_assertion: !!body.assertion,
     subject_token_length: body.subject_token?.length,
+    assertion_length: body.assertion?.length,
   });
 
   log.debug("oidc.exchange.step", { step: "validate_parameters" });
-  if (body.grant_type !== TOKEN_EXCHANGE_GRANT) {
+  const isTokenExchange = body.grant_type === TOKEN_EXCHANGE_GRANT;
+  const isJwtBearer = body.grant_type === JWT_BEARER_GRANT;
+  if (!isTokenExchange && !isJwtBearer) {
     return tokenExchangeError(
       res,
       400,
       "unsupported_grant_type",
-      `grant_type must be ${TOKEN_EXCHANGE_GRANT}`,
+      `grant_type must be one of ${SUPPORTED_GRANT_TYPES.join(", ")}`,
     );
   }
-  if (!body.subject_token) {
-    return tokenExchangeError(res, 400, "invalid_request", "subject_token is required");
+
+  // RFC 8693 puts the JWT in `subject_token` (with `subject_token_type`).
+  // RFC 7523 puts the JWT in `assertion`.
+  const jwt = isTokenExchange ? body.subject_token : body.assertion;
+  if (!jwt) {
+    return tokenExchangeError(
+      res,
+      400,
+      "invalid_request",
+      isTokenExchange
+        ? "subject_token is required"
+        : "assertion is required",
+    );
   }
-  if (body.subject_token_type !== JWT_TOKEN_TYPE) {
+  if (isTokenExchange && body.subject_token_type !== JWT_TOKEN_TYPE) {
     return tokenExchangeError(
       res,
       400,
@@ -120,11 +143,12 @@ router.post("/token", async (req: Request, res: Response) => {
     step: "verify_subject_token",
     issuer: config.oidc.issuer,
     audience: config.oidc.audience,
+    grant_type: body.grant_type,
   });
   let claims: GitHubOidcClaims;
   try {
     claims = await verifyOidcJwt(
-      body.subject_token,
+      jwt,
       config.oidc.issuer,
       config.oidc.audience,
     );
