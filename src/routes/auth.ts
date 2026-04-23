@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db";
 import { config } from "../config";
+import { log } from "../logger";
 
 const router = Router();
 
@@ -88,7 +89,9 @@ router.get("/callback", async (req: Request, res: Response) => {
     req.session.userId = user.id;
     res.redirect("/");
   } catch (error) {
-    console.error("OAuth callback error:", error);
+    log.error("auth.oauth_callback.failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({ error: "Authentication failed" });
   }
 });
@@ -98,37 +101,6 @@ router.get("/install", (_req: Request, res: Response) => {
   res.redirect(
     `https://github.com/apps/${encodeURIComponent(config.github.appSlug)}/installations/new`,
   );
-});
-
-// Logout
-router.post("/logout", (req: Request, res: Response) => {
-  req.session.destroy((err) => {
-    if (err) {
-      res.status(500).json({ error: "Failed to logout" });
-      return;
-    }
-    res.json({ message: "Logged out successfully" });
-  });
-});
-
-// Get current user
-router.get("/me", async (req: Request, res: Response) => {
-  if (!req.session.userId) {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: req.session.userId },
-    select: { id: true, login: true, name: true, avatarUrl: true, createdAt: true },
-  });
-
-  if (!user) {
-    res.status(404).json({ error: "User not found" });
-    return;
-  }
-
-  res.json(user);
 });
 
 export default router;

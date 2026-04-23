@@ -99,7 +99,9 @@
         <div class="issue-main">
           <div class="issue-header">
             <span class="status-dot" data-status></span>
-            <h3 class="issue-title" data-title></h3>
+            <h3 class="issue-title">
+              <a data-title-link></a>
+            </h3>
           </div>
           <p class="issue-desc" data-desc></p>
           <p class="issue-meta muted">
@@ -117,6 +119,33 @@
           <button class="btn btn-danger btn-sm" data-delete>Delete</button>
         </div>
       </li>
+    </template>
+
+    <template id="tpl-issue-detail">
+      <section class="issue-detail">
+        <a href="#/" class="back-link">← Back to issues</a>
+        <article class="issue-detail-card">
+          <header class="issue-detail-head">
+            <span class="status-dot" data-status></span>
+            <h1 class="issue-detail-title" data-title></h1>
+          </header>
+          <p class="issue-detail-meta muted">
+            Opened by <span data-author></span> in
+            <a data-repo-link></a>
+            on <span data-created></span>
+          </p>
+          <div class="issue-detail-body" data-desc></div>
+          <footer class="issue-detail-actions">
+            <select class="input input-sm" data-status-select>
+              <option value="OPEN">Open</option>
+              <option value="IN_PROGRESS">In progress</option>
+              <option value="CLOSED">Closed</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" data-edit>Edit</button>
+            <button class="btn btn-danger btn-sm" data-delete>Delete</button>
+          </footer>
+        </article>
+      </section>
     </template>
 
     <!-- Modal -->
