@@ -32,17 +32,30 @@ const ISSUE_INCLUDE = {
   repository: { select: { id: true, fullName: true } },
 } as const;
 
-// Resolve the user that should own MCP-created issues. We look up by the
-// OIDC `actor` claim recorded on the issued token (interpreted as a GitHub
-// login). If no actor is recorded, or the login does not match a known
-// user, creation fails with a clear error.
+// Resolve the user that should own MCP-created issues. We prefer the
+// numeric OIDC actor id (matched against the user's GitHub id, which is
+// stable across login renames) and fall back to the actor login. If
+// neither is recorded, or no matching user exists, creation fails with a
+// clear error.
 async function resolveAuthorId(token: IssuedToken): Promise<number | null> {
-  if (!token.actor) return null;
-  const user = await prisma.user.findFirst({
-    where: { login: token.actor },
-    select: { id: true },
-  });
-  return user?.id ?? null;
+  if (token.actorId) {
+    const numericGithubId = Number(token.actorId);
+    if (Number.isInteger(numericGithubId) && numericGithubId > 0) {
+      const user = await prisma.user.findUnique({
+        where: { githubId: numericGithubId },
+        select: { id: true },
+      });
+      if (user) return user.id;
+    }
+  }
+  if (token.actor) {
+    const user = await prisma.user.findFirst({
+      where: { login: token.actor },
+      select: { id: true },
+    });
+    if (user) return user.id;
+  }
+  return null;
 }
 
 function buildMcpServer(token: IssuedToken): McpServer {

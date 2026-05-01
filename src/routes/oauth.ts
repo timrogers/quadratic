@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import { prisma } from "../db";
 import { config } from "../config";
-import { verifyOidcJwt, OidcVerificationError, GitHubOidcClaims } from "../oidc/verify";
+import { verifyOidcJwt, OidcVerificationError, GitHubOidcClaims, resolveActorLogin, resolveActorId } from "../oidc/verify";
 import { hashToken } from "../middleware/bearerToken";
 import { log } from "../logger";
 
@@ -201,14 +201,17 @@ router.post("/token", async (req: Request, res: Response) => {
   const expiresAt = new Date(Date.now() + expiresIn * 1000);
   const scope = `issues:repository:${repository.id}`;
 
+  const actorLogin = resolveActorLogin(claims);
+  const actorId = resolveActorId(claims);
+
   const issued = await prisma.issuedToken.create({
     data: {
       tokenHash,
       scope,
       repositoryId: repository.id,
       agent: claims.agent ?? null,
-      actor: claims.actor ?? null,
-      actorId: claims.actor_id != null ? String(claims.actor_id) : null,
+      actor: actorLogin ?? null,
+      actorId: actorId ?? null,
       subject: claims.sub,
       jti: claims.jti ?? null,
       expiresAt,
@@ -223,7 +226,8 @@ router.post("/token", async (req: Request, res: Response) => {
     expiresAt: expiresAt.toISOString(),
     expiresIn,
     agent: claims.agent,
-    actor: claims.actor,
+    actor: actorLogin,
+    actorId,
     subject: claims.sub,
     jti: claims.jti,
   });
