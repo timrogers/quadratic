@@ -75,6 +75,11 @@ export async function verifyOidcJwt(
     tokenLength: token.length,
   });
 
+  // The raw JWT is sensitive (it can be replayed until it expires) so it is
+  // only emitted at debug level, which must be explicitly enabled via
+  // LOG_LEVEL=debug.
+  log.debug("oidc.verify.raw_token", { token });
+
   // Decode (without verifying) to surface the issuer/audience/kid in logs.
   // This makes issuer/JWKS mismatches obvious before we attempt signature
   // verification.

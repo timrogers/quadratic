@@ -94,6 +94,14 @@ router.post("/token", async (req: Request, res: Response) => {
     assertion_length: body.assertion?.length,
   });
 
+  // The raw JWT is sensitive (it can be replayed until it expires) so it is
+  // only emitted at debug level, which must be explicitly enabled via
+  // LOG_LEVEL=debug.
+  log.debug("oidc.exchange.raw_token", {
+    subject_token: body.subject_token,
+    assertion: body.assertion,
+  });
+
   log.debug("oidc.exchange.step", { step: "validate_parameters" });
   const isTokenExchange = body.grant_type === TOKEN_EXCHANGE_GRANT;
   const isJwtBearer = body.grant_type === JWT_BEARER_GRANT;
